@@ -1,28 +1,25 @@
 import { api } from "../api/client";
 import { useApi } from "../hooks/useApi";
+import { Select } from "./ui";
 
 interface Props {
   value: string | null;
   onChange: (issuer: string) => void;
 }
 
-// Issuer filter / selector driving the curve + time-series panels.
+// Issuer picker in the sticky bar, driving the curve and history panels.
 export function IssuerSelector({ value, onChange }: Props) {
   const { data } = useApi<string[]>(() => api.issuers(), []);
   return (
-    <select
-      className="bg-panelLight border border-gray-700 rounded text-sm px-3 py-1.5"
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      <option value="" disabled>
-        Select issuer…
-      </option>
-      {data?.map((i) => (
-        <option key={i} value={i}>
-          {i}
-        </option>
-      ))}
-    </select>
+    <div className="w-[180px] sm:w-[220px]">
+      <Select
+        compact
+        label="Issuer"
+        placeholder="Choose an issuer"
+        value={value ?? ""}
+        onChange={onChange}
+        options={(data ?? []).map((i) => ({ value: i, label: i }))}
+      />
+    </div>
   );
 }

@@ -1,68 +1,123 @@
 import { api } from "../api/client";
 import { useApi } from "../hooks/useApi";
 import type { Signal } from "../types";
+import {
+  Deviation,
+  Empty,
+  ErrorNote,
+  Loading,
+  Meter,
+  Panel,
+  PanelHeader,
+  SelectableRow,
+  Signed,
+  Tag,
+  Td,
+  Th,
+} from "./ui";
 
-// Strength bar (1-100) rendered as a coloured meter.
-function StrengthBar({ value }: { value: number }) {
-  return (
-    <div className="w-20 h-2 bg-gray-800 rounded">
-      <div
-        className="h-2 rounded bg-accent"
-        style={{ width: `${value}%` }}
-      />
-    </div>
-  );
-}
-
-// Top mean-reversion signals table.
-export function SignalsTable({ onSelectIssuer }: { onSelectIssuer?: (i: string) => void }) {
+// Top mean-reversion signals: the one table on the page that says what to do.
+export function SignalsTable({
+  onSelectIssuer,
+  selected,
+}: {
+  onSelectIssuer?: (i: string) => void;
+  selected?: string | null;
+}) {
   const { data, loading, error } = useApi<Signal[]>(() => api.topSignals(15), []);
 
   return (
-    <div className="card overflow-x-auto">
-      <h3 className="font-semibold mb-2">Top Mean-Reversion Signals</h3>
-      {loading && <div className="text-gray-500 text-sm">Loading…</div>}
-      {error && <div className="text-rich text-sm">{error}</div>}
+    <Panel padded={false}>
+      <div className="px-6 pt-6 md:px-8 md:pt-7">
+        <PanelHeader
+          title="Live signals"
+          note="Select a row to load that issuer below"
+        />
+      </div>
+
+      {loading && (
+        <div className="px-6 pb-6 md:px-8">
+          <Loading label="Scanning for dislocations" />
+        </div>
+      )}
+      {error && (
+        <div className="px-6 pb-6 md:px-8">
+          <ErrorNote message={error} />
+        </div>
+      )}
       {data && data.length === 0 && (
-        <div className="text-gray-500 text-sm">No active signals (no |z| &gt; 2 dislocations).</div>
+        <div className="px-6 pb-6 md:px-8">
+          <Empty>
+            Nothing is more than two standard deviations off its curve right
+            now. Widen the entry threshold in the backtest to see what a looser
+            rule would have picked up.
+          </Empty>
+        </div>
       )}
+
       {data && data.length > 0 && (
-        <table className="w-full text-left">
-          <thead className="text-xs uppercase text-gray-400 border-b border-gray-800">
-            <tr>
-              <th className="table-cell">Issuer</th>
-              <th className="table-cell">Rating</th>
-              <th className="table-cell">Signal</th>
-              <th className="table-cell text-right">Z</th>
-              <th className="table-cell text-right">Exp. Move</th>
-              <th className="table-cell">Strength</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((s) => (
-              <tr
-                key={s.cusip}
-                className="border-b border-gray-900 hover:bg-panelLight cursor-pointer"
-                onClick={() => onSelectIssuer?.(s.issuer)}
-              >
-                <td className="table-cell">{s.issuer}</td>
-                <td className="table-cell">{s.rating}</td>
-                <td className={`table-cell font-semibold ${s.direction === "BUY" ? "badge-cheap" : "badge-rich"}`}>
-                  {s.direction === "BUY" ? "BUY CHEAP" : "SELL RICH"}
-                </td>
-                <td className="table-cell text-right">{s.z_score.toFixed(2)}</td>
-                <td className="table-cell text-right">{s.expected_reversion_bps.toFixed(0)}bp</td>
-                <td className="table-cell">
-                  <div className="flex items-center gap-2">
-                    <StrengthBar value={s.signal_strength} />
-                    <span className="text-xs text-gray-400">{s.signal_strength}</span>
-                  </div>
-                </td>
+        <div className="scroll-slim overflow-x-auto pb-2">
+          <table className="w-full min-w-[820px] border-collapse">
+            <thead>
+              <tr>
+                <Th>Issuer</Th>
+                <Th>Rating</Th>
+                <Th>Action</Th>
+                <Th>Off the curve</Th>
+                <Th align="right">Spread should move</Th>
+                <Th>Conviction</Th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.map((s) => (
+                <SelectableRow
+                  key={s.cusip}
+                  selected={selected === s.issuer}
+                  onSelect={
+                    onSelectIssuer ? () => onSelectIssuer(s.issuer) : undefined
+                  }
+                >
+                  <Td>
+                    <span className="font-medium">{s.issuer}</span>
+                    <span className="ml-3 font-mono text-[12.5px] text-faint">
+                      {s.cusip}
+                    </span>
+                  </Td>
+                  <Td>
+                    <Tag>{s.rating}</Tag>
+                  </Td>
+                  <Td>
+                    <Tag tone={s.direction === "BUY" ? "cheap" : "rich"}>
+                      {s.direction === "BUY" ? "Buy cheap" : "Sell rich"}
+                    </Tag>
+                  </Td>
+                  <Td>
+                    <div className="flex items-center gap-3">
+                      <Deviation value={s.z_score} max={4} />
+                      <Signed value={s.z_score} digits={2} />
+                    </div>
+                  </Td>
+                  <Td align="right" className="num">
+                    {Math.abs(s.expected_reversion_bps).toFixed(0)}
+                    <span className="text-[0.85em] text-muted">
+                      {" bp "}
+                      {s.expected_reversion_bps < 0 ? "tighter" : "wider"}
+                    </span>
+                  </Td>
+                  <Td>
+                    <div className="flex items-center gap-3">
+                      <Meter value={s.signal_strength} />
+                      <span className="num text-[13px] text-muted">
+                        {s.signal_strength}
+                      </span>
+                    </div>
+                  </Td>
+                </SelectableRow>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-    </div>
+    </Panel>
   );
 }

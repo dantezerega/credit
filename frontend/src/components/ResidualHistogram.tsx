@@ -1,48 +1,110 @@
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { api } from "../api/client";
 import { useApi } from "../hooks/useApi";
+import {
+  Empty,
+  ErrorNote,
+  Loading,
+  Panel,
+  PanelHeader,
+  axisProps,
+  signed,
+  chart,
+  tooltipProps,
+} from "./ui";
 
-// Bins residual z-scores into a histogram to visualise the dislocation
-// distribution across the universe (should be ~bell-shaped with fat tails).
-function bin(values: number[], width = 0.5): { bucket: string; count: number; mid: number }[] {
+interface Bucket {
+  bucket: string;
+  mid: number;
+  count: number;
+}
+
+// Bins residual z-scores so the shape of the dislocation distribution is
+// visible: a bell through the middle, and the fat tails that carry the trades.
+function bin(values: number[], width = 0.5): Bucket[] {
   if (values.length === 0) return [];
   const min = Math.floor(Math.min(...values) / width) * width;
   const max = Math.ceil(Math.max(...values) / width) * width;
   const bins: Record<string, number> = {};
-  for (let b = min; b < max; b += width) {
-    bins[b.toFixed(1)] = 0;
+  const steps = Math.round((max - min) / width);
+  for (let i = 0; i <= steps; i++) {
+    bins[(min + i * width).toFixed(1)] = 0;
   }
   for (const v of values) {
-    const b = (Math.floor(v / width) * width).toFixed(1);
-    bins[b] = (bins[b] ?? 0) + 1;
+    const key = (Math.floor(v / width) * width).toFixed(1);
+    bins[key] = (bins[key] ?? 0) + 1;
   }
-  return Object.entries(bins).map(([k, count]) => ({
-    bucket: k,
-    mid: Number(k),
-    count,
-  }));
+  return Object.entries(bins)
+    .map(([k, count]) => ({ bucket: k, mid: Number(k), count }))
+    .sort((a, b) => a.mid - b.mid);
 }
 
 export function ResidualHistogram() {
-  const { data, loading, error } = useApi<number[]>(() => api.residualDistribution(), []);
+  const { data, loading, error } = useApi<number[]>(
+    () => api.residualDistribution(),
+    [],
+  );
   const bars = data ? bin(data) : [];
 
   return (
-    <div className="card">
-      <h3 className="font-semibold mb-2">Residual Z-Score Distribution</h3>
-      {loading && <div className="text-gray-500 text-sm">Loading…</div>}
-      {error && <div className="text-rich text-sm">{error}</div>}
-      {data && (
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={bars} margin={{ top: 10, right: 10, bottom: 10, left: -20 }}>
-            <CartesianGrid stroke="#1f2937" />
-            <XAxis dataKey="bucket" stroke="#9ca3af" fontSize={11} />
-            <YAxis stroke="#9ca3af" fontSize={11} />
-            <Tooltip contentStyle={{ background: "#111827", border: "1px solid #374151" }} />
-            <Bar dataKey="count" fill="#38bdf8" />
+    <Panel>
+      <PanelHeader
+        title="Residual distribution"
+        note={data ? `${data.length} bonds` : undefined}
+      />
+
+      {loading && <Loading label="Binning residuals" />}
+      {error && <ErrorNote message={error} />}
+      {data && bars.length === 0 && <Empty>No residuals stored yet.</Empty>}
+
+      {bars.length > 0 && (
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={bars} margin={{ top: 12, right: 16, bottom: 24, left: 8 }}>
+            <CartesianGrid stroke={chart.grid} vertical={false} />
+            <XAxis
+              {...axisProps}
+              dataKey="bucket"
+              interval={0}
+              tickFormatter={(b: string) =>
+                Number.isInteger(Number(b)) ? signed(Number(b)) : ""
+              }
+              label={{
+                value: "Residual z-score",
+                position: "insideBottom",
+                offset: -14,
+                fill: "#61738A",
+                fontSize: 13,
+              }}
+            />
+            <YAxis {...axisProps} width={48} allowDecimals={false} />
+            <Tooltip
+              {...tooltipProps}
+              cursor={{ fill: "rgba(27,39,53,0.04)" }}
+              labelFormatter={(b: string) => `z between ${b} and ${(Number(b) + 0.5).toFixed(1)}`}
+              formatter={(v: number) => [`${v} bonds`, "Count"]}
+            />
+            <ReferenceLine x="0.0" stroke={chart.ink} strokeDasharray="3 3" />
+            <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+              {bars.map((b) => (
+                <Cell
+                  key={b.bucket}
+                  fill={b.mid >= 0 ? chart.cheap : chart.rich}
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       )}
-    </div>
+    </Panel>
   );
 }

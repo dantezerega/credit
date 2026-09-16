@@ -3,26 +3,57 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-gray-950 text-gray-100 antialiased;
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    @apply bg-ground text-ink antialiased;
+    font-family: theme("fontFamily.sans");
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  /* Figures line up in columns everywhere; this dashboard is mostly numbers. */
+  table,
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-focus ring-offset-2 ring-offset-surface rounded-sm;
+  }
+
+  ::selection {
+    background: theme("colors.cheapWash");
+  }
+
+  /* Slim scrollbars so the inner scroll areas don't shout. */
+  .scroll-slim {
+    scrollbar-width: thin;
+    scrollbar-color: theme("colors.line") transparent;
+  }
+  .scroll-slim::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb {
+    background: theme("colors.line");
+    border-radius: 999px;
+  }
+  .scroll-slim::-webkit-scrollbar-track {
+    background: transparent;
   }
 }
 
-@layer components {
-  .card {
-    @apply bg-panel border border-gray-800 rounded-lg p-4 shadow-lg;
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
-  .stat-value {
-    @apply text-2xl font-semibold;
-  }
-  .table-cell {
-    @apply px-3 py-1.5 text-sm whitespace-nowrap;
-  }
-  .badge-cheap {
-    @apply text-cheap font-semibold;
-  }
-  .badge-rich {
-    @apply text-rich font-semibold;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
