@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,6 +22,22 @@ class Settings(BaseSettings):
     # Default to a local SQLite file so the project is runnable with zero infra.
     # docker-compose overrides this with a Postgres DSN.
     database_url: str = "sqlite:///./credit_rv.db"
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalize_pg_dsn(cls, v: str) -> str:
+        """Normalize hosted-Postgres DSNs to the psycopg3 SQLAlchemy driver.
+
+        Vercel Postgres / Neon / Supabase hand out ``postgres://`` or
+        ``postgresql://`` URLs; SQLAlchemy needs an explicit driver. Map both to
+        ``postgresql+psycopg://`` (psycopg3). Strip a ``?sslmode=`` style query
+        only if it confuses the driver — psycopg3 accepts sslmode, so we keep it.
+        """
+        if v.startswith("postgres://"):
+            return "postgresql+psycopg://" + v[len("postgres://"):]
+        if v.startswith("postgresql://"):
+            return "postgresql+psycopg://" + v[len("postgresql://"):]
+        return v
 
     # --- API ----------------------------------------------------------------
     api_title: str = "Credit Spread RV Dashboard API"

@@ -10,7 +10,9 @@ import type {
   SpreadHistoryPoint,
 } from "../types";
 
-const BASE = "/api";
+// Local dev proxies "/api" to the backend. On Vercel the FastAPI service is
+// mounted under its routePrefix, so set VITE_API_BASE="/_/backend/api".
+const BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
 async function get<T>(path: string, params?: Record<string, string | number>): Promise<T> {
   const url = new URL(BASE + path, window.location.origin);
