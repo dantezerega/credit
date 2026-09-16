@@ -94,7 +94,7 @@ export function ResidualHistogram() {
               formatter={(v: number) => [`${v} bonds`, "Count"]}
             />
             <ReferenceLine x="0.0" stroke={chart.ink} strokeDasharray="3 3" />
-            <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+            <Bar dataKey="count" radius={[3, 3, 0, 0]} isAnimationActive={false}>
               {bars.map((b) => (
                 <Cell
                   key={b.bucket}

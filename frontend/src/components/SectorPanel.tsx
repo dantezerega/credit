@@ -73,7 +73,7 @@ export function SectorPanel() {
                 cursor={{ fill: "rgba(27,39,53,0.04)" }}
                 formatter={(v: number) => [`${v.toFixed(0)} bp`, "Average spread"]}
               />
-              <Bar dataKey="avg_spread" radius={[0, 4, 4, 0]} barSize={20}>
+              <Bar dataKey="avg_spread" radius={[0, 4, 4, 0]} barSize={20} isAnimationActive={false}>
                 {data.sectors.map((s) => (
                   <Cell
                     key={s.sector}
