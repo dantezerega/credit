@@ -8,7 +8,9 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": {
+      // Anchored so it matches /api/... only. A bare "/api" key also matches
+      // /api-static/..., which is where the static snapshot lives.
+      "^/api/": {
         // Use explicit IPv4 — uvicorn binds 127.0.0.1, but "localhost" can
         // resolve to IPv6 ::1 first, causing 502s from the proxy.
         target: process.env.VITE_API_TARGET || "http://127.0.0.1:8000",
