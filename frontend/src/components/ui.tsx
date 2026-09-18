@@ -10,7 +10,7 @@
 // down the page; prose is the exception, not the rule, and is held to one line
 // per section. Uppercase is confined to column keys and parameter strips: it
 // is how instrument labelling reads, and it never appears above a heading.
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 export function cn(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -271,7 +271,6 @@ export function Deviation({
       style={{ width }}
       aria-hidden="true"
     >
-      <div className="absolute inset-y-[-2px] left-1/2 w-px -translate-x-1/2 bg-line" />
       <div
         className={cn(
           "absolute top-0 h-[8px] transition-[width] duration-700 ease-out",
@@ -279,6 +278,7 @@ export function Deviation({
         )}
         style={{ width: `${pct}%` }}
       />
+      <div className="absolute inset-y-[-2px] left-1/2 w-px -translate-x-1/2 bg-ink/35" />
     </div>
   );
 }
@@ -353,39 +353,6 @@ export function Tag({
 }
 
 /* ------------------------------------------------------------------ controls */
-
-export function Button({
-  children,
-  onClick,
-  href,
-  variant = "primary",
-}: {
-  children: ReactNode;
-  onClick?: () => void;
-  href?: string;
-  variant?: "primary" | "quiet";
-}) {
-  const base =
-    "inline-flex items-center justify-center rounded-chip px-3.5 py-2 font-mono text-[12px] font-medium uppercase tracking-[0.06em] transition-colors duration-150";
-  const styles = {
-    primary: "bg-ink text-white hover:bg-ink/85 active:bg-ink",
-    quiet:
-      "border border-line bg-surface text-ink hover:border-ink/40 hover:bg-raised",
-  };
-  const cls = cn(base, styles[variant]);
-  if (href) {
-    return (
-      <a href={href} className={cls}>
-        {children}
-      </a>
-    );
-  }
-  return (
-    <button type="button" onClick={onClick} className={cls}>
-      {children}
-    </button>
-  );
-}
 
 export function Select({
   value,
@@ -555,10 +522,8 @@ export function SelectableRow({
   selected?: boolean;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLTableRowElement>(null);
   return (
     <tr
-      ref={ref}
       tabIndex={onSelect ? 0 : undefined}
       onClick={onSelect}
       onKeyDown={(e) => {
