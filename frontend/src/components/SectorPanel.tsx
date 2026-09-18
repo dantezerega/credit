@@ -3,6 +3,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -10,31 +11,56 @@ import {
 } from "recharts";
 import { api } from "../api/client";
 import { useApi } from "../hooks/useApi";
-import type { SectorComparison } from "../types";
+import type { SectorComparison, SectorStat } from "../types";
 import {
   Empty,
   ErrorNote,
   Loading,
   Panel,
-  PanelHeader,
+  PanelHead,
   Signed,
+  Spec,
+  Td,
+  Th,
+  axisLabel,
   axisProps,
   chart,
+  fmtDate,
+  signed,
   tooltipProps,
 } from "./ui";
 
-// Sector RV. Bars run horizontally so sector names read straight, and they are
-// coloured by z-score rather than by size — the same cheap/rich axis as
-// everywhere else on the page.
+// Sector RV. Bars run horizontally so sector names read straight, and they
+// measure each sector against the universe average rather than against zero —
+// no sector trades anywhere near zero spread, so a zero-based bar would carry
+// no information. Colour is the sector's own z-score, the same cheap/rich axis
+// as everywhere else, and absolute levels are in the table below.
 export function SectorPanel() {
   const { data, loading, error } = useApi<SectorComparison>(
     () => api.sectors(),
     [],
   );
 
+  const bonds = data ? data.sectors.reduce((a, s) => a + s.n_bonds, 0) : 0;
+  const mean =
+    data && bonds
+      ? data.sectors.reduce((a, s) => a + s.avg_spread * s.n_bonds, 0) / bonds
+      : 0;
+  const basis = data
+    ? data.sectors.map((s) => ({ ...s, basis: s.avg_spread - mean }))
+    : [];
+  // Symmetric axis, rounded out to a round number of basis points, so a bar
+  // left of the line is directly comparable with one to the right.
+  const bound = basis.length
+    ? Math.ceil(Math.max(...basis.map((b) => Math.abs(b.basis))) / 10) * 10
+    : 10;
+
   return (
     <Panel>
-      <PanelHeader title="Spread by sector" note="Coloured by z-score" />
+      <PanelHead
+        title="Sector Z-spread vs universe"
+        note={data ? `${data.sectors.length} sectors · ${fmtDate(data.trade_date)}` : undefined}
+      />
 
       {loading && <Loading label="Comparing sectors" />}
       {error && <ErrorNote message={error} />}
@@ -43,38 +69,44 @@ export function SectorPanel() {
         <>
           <ResponsiveContainer
             width="100%"
-            height={Math.max(220, data.sectors.length * 48 + 48)}
+            height={Math.max(200, basis.length * 42 + 52)}
           >
             <BarChart
-              data={data.sectors}
+              data={basis}
               layout="vertical"
-              margin={{ top: 8, right: 24, bottom: 24, left: 8 }}
+              margin={{ top: 6, right: 18, bottom: 26, left: 4 }}
             >
-              <CartesianGrid stroke={chart.grid} horizontal={false} />
+              <CartesianGrid stroke={chart.grid} strokeDasharray="2 3" horizontal={false} />
               <XAxis
                 {...axisProps}
                 type="number"
+                domain={[-bound, bound]}
+                tickFormatter={(v: number) => signed(v, 0)}
                 label={{
-                  value: "Average spread (bp)",
+                  value: "Z-SPREAD VS UNIVERSE AVERAGE (BP)",
                   position: "insideBottom",
                   offset: -14,
-                  fill: "#61738A",
-                  fontSize: 13,
+                  ...axisLabel,
                 }}
               />
               <YAxis
                 {...axisProps}
                 type="category"
                 dataKey="sector"
-                width={112}
+                width={96}
+                tick={{ ...axisProps.tick, fontSize: 11.5 }}
               />
               <Tooltip
                 {...tooltipProps}
-                cursor={{ fill: "rgba(27,39,53,0.04)" }}
-                formatter={(v: number) => [`${v.toFixed(0)} bp`, "Average spread"]}
+                cursor={{ fill: "rgba(18,28,39,0.04)" }}
+                formatter={(v: number, _n: string, item: { payload?: SectorStat }) => [
+                  `${signed(v, 2)} bp · avg ${item.payload?.avg_spread.toFixed(2) ?? "—"} bp`,
+                  "Vs universe",
+                ]}
               />
-              <Bar dataKey="avg_spread" radius={[0, 4, 4, 0]} barSize={20} isAnimationActive={false}>
-                {data.sectors.map((s) => (
+              <ReferenceLine x={0} stroke={chart.ink} strokeWidth={1} />
+              <Bar dataKey="basis" barSize={16} isAnimationActive={false}>
+                {basis.map((s) => (
                   <Cell
                     key={s.sector}
                     fill={s.z_score >= 0 ? chart.cheap : chart.rich}
@@ -84,34 +116,40 @@ export function SectorPanel() {
             </BarChart>
           </ResponsiveContainer>
 
-          <div className="mt-6 border-t border-hair pt-6">
+          <div className="mt-4 border-t border-hair pt-4">
             <div className="scroll-slim overflow-x-auto">
-              <table className="w-full min-w-[520px] border-collapse text-[14.5px]">
+              <table className="w-full min-w-[560px] border-collapse">
                 <thead>
-                  <tr className="border-b border-line text-[13px] font-semibold text-muted">
-                    <th className="py-2.5 pr-4 text-left">Sector</th>
-                    <th className="px-4 py-2.5 text-right">Average spread</th>
-                    <th className="px-4 py-2.5 text-right">z</th>
-                    <th className="px-4 py-2.5 text-right">Percentile</th>
-                    <th className="py-2.5 pl-4 text-right">Bonds</th>
+                  <tr>
+                    <Th>Sector</Th>
+                    <Th align="right">Avg bp</Th>
+                    <Th align="right" group>
+                      Vs universe bp
+                    </Th>
+                    <Th align="right">Z</Th>
+                    <Th align="right">Pct</Th>
+                    <Th align="right" group>
+                      Bonds
+                    </Th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.sectors.map((s) => (
                     <tr key={s.sector} className="border-b border-hair last:border-0">
-                      <td className="py-3 pr-4 font-medium">{s.sector}</td>
-                      <td className="num px-4 py-3 text-right">
-                        {s.avg_spread.toFixed(0)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
+                      <Td className="font-medium">{s.sector}</Td>
+                      <Td num>{s.avg_spread.toFixed(2)}</Td>
+                      <Td num group>
+                        <Signed value={s.avg_spread - mean} digits={2} />
+                      </Td>
+                      <Td num>
                         <Signed value={s.z_score} digits={2} />
-                      </td>
-                      <td className="num px-4 py-3 text-right text-muted">
-                        {s.percentile.toFixed(0)}
-                      </td>
-                      <td className="num py-3 pl-4 text-right text-muted">
+                      </Td>
+                      <Td num className="text-muted">
+                        {s.percentile.toFixed(1)}
+                      </Td>
+                      <Td num group className="text-muted">
                         {s.n_bonds}
-                      </td>
+                      </Td>
                     </tr>
                   ))}
                 </tbody>
@@ -119,26 +157,39 @@ export function SectorPanel() {
             </div>
           </div>
 
-          <div className="mt-6 border-t border-hair pt-6">
-            <h4 className="mb-3 text-[15px] font-semibold">What stands out</h4>
+          <div className="mt-4 border-t border-hair pt-4">
+            <PanelHead title="Cross-sector read" />
             {data.narrative.length === 0 ? (
               <Empty>
-                Sectors are broadly in line with each other. Nothing to call out
-                today.
+                Sectors are in line with each other. Nothing to call out today.
               </Empty>
             ) : (
               <ul className="divide-y divide-hair">
                 {data.narrative.map((line, i) => (
                   <li
                     key={i}
-                    className="py-3 font-serif text-[15.5px] leading-relaxed first:pt-0 last:pb-0"
+                    className="flex items-baseline gap-2.5 py-2 text-[12.5px] leading-relaxed first:pt-0 last:pb-0"
                   >
+                    <span
+                      className="mt-[6px] h-[6px] w-[6px] shrink-0 bg-cheapBright"
+                      aria-hidden="true"
+                    />
                     {line}
                   </li>
                 ))}
               </ul>
             )}
           </div>
+
+          <Spec
+            items={[
+              ["Universe", `${mean.toFixed(2)} BP AVG`],
+              ["Bonds", String(bonds)],
+              ["Z", "SECTOR AVG VS OWN HISTORY"],
+              ["Pct", "RANK IN OWN HISTORY"],
+              ["As of", fmtDate(data.trade_date)],
+            ]}
+          />
         </>
       )}
     </Panel>

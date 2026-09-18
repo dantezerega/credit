@@ -16,8 +16,10 @@ import {
   ErrorNote,
   Loading,
   Panel,
-  PanelHeader,
+  PanelHead,
   Select,
+  Spec,
+  axisLabel,
   axisProps,
   chart,
   fmtShortDate,
@@ -28,15 +30,19 @@ interface Props {
   issuer: string | null;
 }
 
+// Four measures of the same credit, so they are separated by dash pattern and
+// weight rather than by colour — teal and rose are reserved for the cheap/rich
+// axis and would mean nothing here.
 const SERIES = [
-  { key: "z_spread", label: "Z-spread", color: chart.ink, dash: undefined, width: 2.5 },
-  { key: "g_spread", label: "G-spread", color: chart.cheap, dash: "1 6", width: 2.5 },
-  { key: "oas", label: "OAS", color: chart.cobalt, dash: "7 5", width: 2 },
+  { key: "z_spread", label: "Z-spd", color: chart.ink, dash: undefined, width: 1.75 },
+  { key: "g_spread", label: "G-spd", color: "#55677B", dash: "1 4", width: 1.5 },
+  { key: "i_spread", label: "I-spd", color: "#8496A8", dash: "5 3", width: 1.5 },
+  { key: "oas", label: "Oas", color: chart.cobalt, dash: "7 4", width: 1.5 },
 ];
 
 function yearsTo(maturity: string): string {
   const years = (new Date(maturity).getTime() - Date.now()) / 3.15576e10;
-  return `${years.toFixed(0)}y`;
+  return `${years.toFixed(1)}y`;
 }
 
 // Historical spread series for one bond of the selected issuer.
@@ -56,29 +62,42 @@ export function SpreadTimeSeries({ issuer }: Props) {
     [cusip],
   );
 
+  // Summary statistics of the Z-spread series, and the option cost the OAS
+  // model is currently charging this bond.
+  const z = data ? data.map((d) => d.z_spread) : [];
+  const mean = z.length ? z.reduce((a, b) => a + b, 0) / z.length : 0;
+  const sd = z.length
+    ? Math.sqrt(z.reduce((a, b) => a + (b - mean) ** 2, 0) / z.length)
+    : 0;
+  const last = data && data.length ? data[data.length - 1] : null;
+
   return (
     <Panel>
-      <PanelHeader
+      <PanelHead
         title="Spread history"
+        note={cusip ?? undefined}
         action={
           bonds && bonds.length > 0 ? (
-            <div className="w-[240px]">
-              <Select
-                compact
-                label="Bond"
-                value={cusip ?? ""}
-                onChange={setCusip}
-                options={bonds.map((b) => ({
-                  value: b.cusip,
-                  label: `${b.cusip}  ${yearsTo(b.maturity)}`,
-                }))}
-              />
-            </div>
+            <label className="flex items-center gap-2">
+              <span className="key">Bond</span>
+              <div className="w-[215px]">
+                <Select
+                  compact
+                  label="Bond"
+                  value={cusip ?? ""}
+                  onChange={setCusip}
+                  options={bonds.map((b) => ({
+                    value: b.cusip,
+                    label: `${b.cusip}  ${yearsTo(b.maturity)}  ${b.coupon.toFixed(2)}%`,
+                  }))}
+                />
+              </div>
+            </label>
           ) : undefined
         }
       />
 
-      {!issuer && <Empty>Choose an issuer in the bar above.</Empty>}
+      {!issuer && <Empty>Select an issuer in the bar above.</Empty>}
       {issuer && loading && <Loading label="Loading history" />}
       {error && <ErrorNote message={error} />}
       {issuer && data && data.length === 0 && !loading && (
@@ -87,7 +106,7 @@ export function SpreadTimeSeries({ issuer }: Props) {
 
       {data && data.length > 0 && (
         <>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-muted">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[11px] uppercase tracking-[0.06em] text-muted">
             {SERIES.map((s) => (
               <span key={s.key} className="flex items-center gap-2">
                 <svg width="18" height="8" aria-hidden="true">
@@ -97,43 +116,46 @@ export function SpreadTimeSeries({ issuer }: Props) {
                     x2="18"
                     y2="4"
                     stroke={s.color}
-                    strokeWidth="2.5"
+                    strokeWidth={s.width + 0.5}
                     strokeDasharray={s.dash}
-                    strokeLinecap="round"
                   />
                 </svg>
                 {s.label}
               </span>
             ))}
-            <span className="font-serif text-faint">
-              On a bullet bond these three sit almost on top of each other.
-            </span>
           </div>
-          <div className="mt-5">
-            <ResponsiveContainer width="100%" height={340}>
-              <LineChart data={data} margin={{ top: 12, right: 16, bottom: 8, left: 8 }}>
-                <CartesianGrid stroke={chart.grid} vertical={false} />
+
+          <div className="mt-4">
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={data} margin={{ top: 10, right: 14, bottom: 22, left: 4 }}>
+                <CartesianGrid stroke={chart.grid} strokeDasharray="2 3" />
                 <XAxis
                   {...axisProps}
                   dataKey="trade_date"
-                  minTickGap={48}
+                  minTickGap={44}
                   tickFormatter={fmtShortDate}
+                  label={{
+                    value: "TRADE DATE (MM-DD)",
+                    position: "insideBottom",
+                    offset: -12,
+                    ...axisLabel,
+                  }}
                 />
                 <YAxis
                   {...axisProps}
-                  width={56}
+                  width={52}
                   label={{
-                    value: "bp",
+                    value: "SPREAD (BP)",
                     angle: -90,
                     position: "insideLeft",
-                    fill: "#61738A",
-                    fontSize: 13,
+                    offset: 12,
+                    ...axisLabel,
                   }}
                 />
                 <Tooltip
                   {...tooltipProps}
-                  labelFormatter={(d: string) => fmtShortDate(d)}
-                  formatter={(v: number, n: string) => [`${v.toFixed(1)} bp`, n]}
+                  labelFormatter={(d: string) => String(d)}
+                  formatter={(v: number, n: string) => [`${v.toFixed(2)} bp`, n]}
                 />
                 {SERIES.map((s) => (
                   <Line
@@ -150,6 +172,23 @@ export function SpreadTimeSeries({ issuer }: Props) {
               </LineChart>
             </ResponsiveContainer>
           </div>
+
+          <Spec
+            items={[
+              ["Obs", String(data.length)],
+              ["Z last", `${last ? last.z_spread.toFixed(2) : "—"} BP`],
+              ["Z mean", `${mean.toFixed(2)} BP`],
+              ["Z stdev", `${sd.toFixed(2)} BP`],
+              [
+                "Z range",
+                `${Math.min(...z).toFixed(1)}–${Math.max(...z).toFixed(1)} BP`,
+              ],
+              [
+                "Option cost",
+                last ? `${(last.z_spread - last.oas).toFixed(2)} BP` : "—",
+              ],
+            ]}
+          />
         </>
       )}
     </Panel>

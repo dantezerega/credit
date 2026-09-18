@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { BacktestPanel } from "./components/BacktestPanel";
+import { BlotterHeader } from "./components/BlotterHeader";
 import { IssuerCurveChart } from "./components/IssuerCurveChart";
 import { IssuerSelector } from "./components/IssuerSelector";
-import { Overview } from "./components/SummaryCards";
 import { ResidualHistogram } from "./components/ResidualHistogram";
 import { RVTable } from "./components/RVTable";
 import { SectorPanel } from "./components/SectorPanel";
 import { SignalsTable } from "./components/SignalsTable";
 import { SpreadTimeSeries } from "./components/SpreadTimeSeries";
-import { Section, cn } from "./components/ui";
+import { Hotkey, Section, cn } from "./components/ui";
 
+// Sections are numbered because the numbers are the shortcut that jumps to
+// them, not because the page is a sequence.
 const SECTIONS = [
   { id: "signals", label: "Signals" },
   { id: "cheap", label: "Cheap" },
@@ -20,22 +22,14 @@ const SECTIONS = [
   { id: "backtest", label: "Backtest" },
 ];
 
-// A dot above the line and a dot below it — the residual, which is the whole
+// A tick above the line and a tick below it — the residual, which is the whole
 // subject of this dashboard, drawn as small as it will go.
 function Mark() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-      <line
-        x1="2.5"
-        y1="12"
-        x2="21.5"
-        y2="12"
-        stroke="#1B2735"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <circle cx="8" cy="6" r="2.6" fill="#14A093" />
-      <circle cx="16" cy="18" r="2.6" fill="#C13A57" />
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+      <line x1="2" y1="11" x2="20" y2="11" stroke="#121C27" strokeWidth="1.5" />
+      <rect x="4.5" y="3.5" width="5" height="5" fill="#12A093" />
+      <rect x="12.5" y="13.5" width="5" height="5" fill="#D9486A" />
     </svg>
   );
 }
@@ -51,7 +45,7 @@ function useActiveSection(ids: string[]): string {
     let frame = 0;
     const update = () => {
       frame = 0;
-      const line = 140; // just below the sticky bar
+      const line = 120; // just below the sticky bar
       let current = ids[0];
       for (const id of ids) {
         const el = document.getElementById(id);
@@ -80,7 +74,33 @@ function useActiveSection(ids: string[]): string {
   return active;
 }
 
-function TopBar({
+// Digits jump between sections. A screen this long is faster to drive from the
+// keyboard, and the same digits are printed next to every heading so the
+// shortcut is discoverable without a legend.
+function useSectionKeys(ids: string[]) {
+  const key = ids.join(",");
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (t?.isContentEditable || tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") {
+        return;
+      }
+      const n = Number(e.key);
+      if (!Number.isInteger(n) || n < 1 || n > ids.length) return;
+      const el = document.getElementById(ids[n - 1]);
+      if (!el) return;
+      e.preventDefault();
+      el.scrollIntoView({ block: "start", behavior: "smooth" });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+}
+
+function CommandBar({
   issuer,
   onIssuer,
 }: {
@@ -89,38 +109,46 @@ function TopBar({
 }) {
   const active = useActiveSection(SECTIONS.map((s) => s.id));
   return (
-    <header className="sticky top-0 z-30 border-b border-hair bg-surface/85 backdrop-blur-md">
-      <div className="mx-auto flex h-[60px] max-w-column items-center gap-6 px-6 md:px-10">
-        <a href="#top" className="flex shrink-0 items-center gap-2.5">
+    <header className="sticky top-0 z-30 border-b border-line bg-surface/95 shadow-bar backdrop-blur">
+      <div className="mx-auto flex h-[52px] max-w-blotter items-center gap-5 px-5 md:px-8">
+        <a href="#top" className="flex shrink-0 items-center gap-2">
           <Mark />
-          <span className="text-[15px] font-semibold tracking-[-0.01em]">
+          <span className="font-mono text-[13px] font-semibold uppercase tracking-[0.1em]">
             Credit RV
           </span>
         </a>
 
-        <nav className="hidden flex-1 items-center gap-1 xl:flex">
-          {SECTIONS.map((s) => (
+        <nav className="hidden flex-1 items-center gap-px xl:flex" aria-label="Sections">
+          {SECTIONS.map((s, i) => (
             <a
               key={s.id}
               href={`#${s.id}`}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-[13.5px] transition-colors duration-150",
+                "flex items-baseline gap-1.5 rounded-chip px-2.5 py-1 font-mono text-[11.5px] uppercase tracking-[0.07em] transition-colors duration-150",
                 active === s.id
-                  ? "bg-raised font-medium text-ink"
-                  : "text-muted hover:text-ink",
+                  ? "bg-ink text-white"
+                  : "text-muted hover:bg-raised hover:text-ink",
               )}
             >
+              <span
+                className={cn(
+                  "text-[10px]",
+                  active === s.id ? "text-white/55" : "text-faint",
+                )}
+              >
+                {i + 1}
+              </span>
               {s.label}
             </a>
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-3 xl:ml-0">
-          <span className="hidden text-[13px] text-faint sm:inline">Issuer</span>
-          <div className="w-[180px] sm:w-[220px]">
+        <label className="ml-auto flex items-center gap-2 xl:ml-0">
+          <span className="key hidden sm:inline">Issuer</span>
+          <div className="w-[176px] sm:w-[210px]">
             <IssuerSelector value={issuer} onChange={onIssuer} />
           </div>
-        </div>
+        </label>
       </div>
     </header>
   );
@@ -128,6 +156,7 @@ function TopBar({
 
 export default function App() {
   const [issuer, setIssuer] = useState<string | null>("EXXON MOBIL");
+  useSectionKeys(SECTIONS.map((s) => s.id));
 
   // The issuer only drives the curve and history panels, which sit thousands of
   // pixels below the bar the picker lives in — so choosing one looked like it
@@ -148,55 +177,51 @@ export default function App() {
     <div className="min-h-screen bg-ground">
       <a
         href="#signals"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-6 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2 focus:text-white"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-5 focus:top-2.5 focus:z-50 focus:rounded-chip focus:bg-ink focus:px-3 focus:py-1.5 focus:font-mono focus:text-[12px] focus:uppercase focus:tracking-[0.06em] focus:text-white"
       >
         Skip to signals
       </a>
 
-      <TopBar issuer={issuer} onIssuer={selectIssuer} />
+      <CommandBar issuer={issuer} onIssuer={selectIssuer} />
 
       <main id="top">
-        <Overview />
+        <BlotterHeader />
 
-        <div className="mx-auto max-w-column space-y-24 px-6 pb-24 pt-24 md:px-10 md:space-y-28">
+        <div className="mx-auto max-w-blotter space-y-14 px-5 pb-16 pt-12 md:px-8">
           <Section
             id="signals"
-            title="What the model would trade"
-            lede="Bonds sitting more than two standard deviations off their own issuer curve, ranked by how far they have to travel to get back."
+            hotkey="1"
+            title="Signals"
+            note="Bonds more than 2σ off their own issuer curve, ranked by the spread move the model expects them to give back."
           >
             <SignalsTable onSelectIssuer={selectIssuer} selected={issuer} />
           </Section>
 
           <Section
             id="cheap"
-            title="Trading cheap to the curve"
-            lede="The twenty widest residuals. A positive gap means the bond pays more spread than its issuer's curve implies, so you are paid more for the same credit risk."
+            hotkey="2"
+            title="Cheap to curve"
+            note="The twenty widest residuals. A positive residual pays more spread than the issuer's curve implies, for the same credit risk."
           >
             <RVTable mode="cheapest" onSelectIssuer={selectIssuer} selected={issuer} />
           </Section>
 
           <Section
             id="rich"
-            title="Trading rich to the curve"
-            lede="The twenty tightest residuals. A negative gap means the bond pays less than the curve implies, so you are giving up spread for nothing."
+            hotkey="3"
+            title="Rich to curve"
+            note="The twenty tightest residuals. A negative residual pays less spread than the curve implies, so the bond gives up carry for nothing."
           >
             <RVTable mode="richest" onSelectIssuer={selectIssuer} selected={issuer} />
           </Section>
 
           <Section
             id="curve"
-            title="One issuer, close up"
-            lede="Each dot is a bond. The line is the curve fitted through all of them. The vertical distance between the two is the residual everything else on this page is built from."
-            action={
-              <label className="flex items-center gap-3">
-                <span className="text-[13.5px] text-muted">Issuer</span>
-                <div className="w-[220px]">
-                  <IssuerSelector value={issuer} onChange={selectIssuer} />
-                </div>
-              </label>
-            }
+            hotkey="4"
+            title="Issuer curve"
+            note="Observed Z-spreads against the curve fitted through them. The vertical gap is the residual every other panel is built from."
           >
-            <div className="space-y-8">
+            <div className="space-y-4">
               <IssuerCurveChart issuer={issuer} />
               <SpreadTimeSeries issuer={issuer} />
             </div>
@@ -204,36 +229,48 @@ export default function App() {
 
           <Section
             id="distribution"
-            title="How dislocated is the universe"
-            lede="Residual z-scores across every bond tracked. The middle is noise; the tails are where the trades are."
+            hotkey="5"
+            title="Residual distribution"
+            note="Standardised residuals across the whole universe. The middle is noise; the tails past ±2σ are where the signals come from."
           >
             <ResidualHistogram />
           </Section>
 
           <Section
             id="sectors"
+            hotkey="6"
             title="Sector relative value"
-            lede="Average spread by sector, set against each sector's own history. This is the top-down view that says which part of the market to hunt in."
+            note="Each sector's average Z-spread against the universe average, coloured by where that sector sits in its own history."
           >
             <SectorPanel />
           </Section>
 
           <Section
             id="backtest"
-            title="Would it have worked"
-            lede="Enter when a residual passes your threshold, exit when it returns to the curve. Results are in basis points of spread captured."
+            hotkey="7"
+            title="Backtest"
+            note="Open at the entry threshold, close when the residual returns to the curve. Results are in basis points of spread captured."
           >
             <BacktestPanel />
           </Section>
         </div>
       </main>
 
-      <footer className="border-t border-hair bg-surface">
-        <div className="mx-auto max-w-column px-6 py-10 md:px-10">
-          <p className="max-w-prose font-serif text-[15px] leading-relaxed text-muted">
-            Synthetic data stands in for TRACE, and the option-adjusted spread
-            model is a simplified one. Built for research and teaching, not for
-            trading.
+      <footer className="border-t border-line bg-surface">
+        <div className="mx-auto max-w-blotter px-5 py-6 md:px-8">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+            <span className="key">Keys</span>
+            <span className="flex items-center gap-1.5 font-mono text-[11.5px] text-muted">
+              <Hotkey>1</Hotkey>
+              <span className="text-faint">–</span>
+              <Hotkey>7</Hotkey>
+              jump between sections
+            </span>
+          </div>
+          <p className="mt-3 max-w-prose text-[12.5px] leading-relaxed text-muted">
+            Prices and spreads are synthetic, standing in for TRACE, and the OAS
+            model is a closed-form simplification rather than a lattice. Research
+            and teaching only — not investment advice.
           </p>
         </div>
       </footer>

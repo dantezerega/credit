@@ -10,22 +10,43 @@
   body {
     @apply bg-ground text-ink antialiased;
     font-family: theme("fontFamily.sans");
-    font-size: 15px;
-    line-height: 1.55;
+    font-size: 13.5px;
+    line-height: 1.5;
   }
 
-  /* Figures line up in columns everywhere; this dashboard is mostly numbers. */
+  /* This screen is almost entirely figures, and figures have to line up in
+     columns whether they sit in a table cell or in a headline. */
   table,
-  .num {
+  .num,
+  .font-mono {
     font-variant-numeric: tabular-nums;
+    font-feature-settings: "zero" 1;
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-focus ring-offset-2 ring-offset-surface rounded-sm;
+    @apply rounded-none outline-none ring-2 ring-focus ring-offset-1 ring-offset-surface;
   }
 
   ::selection {
     background: theme("colors.cheapWash");
+  }
+}
+
+@layer components {
+  /* Column keys: the short uppercase tokens a desk actually reads — CUSIP,
+     Z-SPD, RESID. Caps are confined to table heads and parameter strips, so
+     they read as instrument labelling rather than decoration. Never put a
+     lowercase sigma in one: CSS uppercasing turns σ into Σ, which on a
+     quantitative screen reads as a summation. Units belong in the panel's
+     parameter strip, which is not transformed. */
+  .key {
+    @apply font-mono text-key font-medium uppercase text-faint;
+  }
+
+  /* Vertical rule marking a column group boundary: identity | market | model
+     | deviation. The rules encode which numbers are comparable. */
+  .group-start {
+    @apply border-l border-hair;
   }
 
   /* Slim scrollbars so the inner scroll areas don't shout. */
@@ -39,11 +60,25 @@
   }
   .scroll-slim::-webkit-scrollbar-thumb {
     background: theme("colors.line");
-    border-radius: 999px;
   }
   .scroll-slim::-webkit-scrollbar-track {
     background: transparent;
   }
+}
+
+/* The one blinking thing on the page, and only while data is in flight. */
+@keyframes caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  95% {
+    opacity: 0.1;
+  }
+}
+.caret {
+  animation: caret 1.05s steps(1, end) infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -54,6 +89,7 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

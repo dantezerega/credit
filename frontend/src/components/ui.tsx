@@ -1,10 +1,15 @@
-// Shared design primitives.
+// Shared instrument primitives.
 //
 // The organising idea: every headline number in credit RV is a *signed
 // deviation from a fitted curve*. So the page's signature device is a bar that
 // grows out of a zero line — right and teal when a bond trades cheap, left and
-// rose when it trades rich. Unipolar quantities (conviction, counts) keep a
-// plain left-anchored bar, so the two never get confused.
+// rose when it trades rich. Unipolar quantities (conviction, counts) get a
+// segmented meter instead, so the two are never confused.
+//
+// Everything numeric is set in mono and tabular so columns of figures align
+// down the page; prose is the exception, not the rule, and is held to one line
+// per section. Uppercase is confined to column keys and parameter strips: it
+// is how instrument labelling reads, and it never appears above a heading.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export function cn(...parts: (string | false | null | undefined)[]): string {
@@ -22,31 +27,30 @@ export function signed(value: number, digits = 0): string {
   return body;
 }
 
+// ISO dates throughout. Locale dates are friendlier to read one at a time and
+// worse to read in a column, which is how dates appear here.
 export function fmtDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-// Curve-fit identifiers come off the API in snake_case; nobody reads that.
-const METHOD_LABELS: Record<string, string> = {
-  nelson_siegel: "Nelson-Siegel",
-  cubic_spline: "cubic spline",
-  linear: "linear",
-};
-
-export function methodLabel(method: string): string {
-  return METHOD_LABELS[method] ?? method.replace(/_/g, " ");
+  return d.toISOString().slice(0, 10);
 }
 
 export function fmtShortDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return d.toISOString().slice(5, 10);
+}
+
+// Curve-fit identifiers come off the API in snake_case; they belong in the
+// parameter strips, where the house style is uppercase.
+const METHOD_LABELS: Record<string, string> = {
+  nelson_siegel: "NELSON-SIEGEL",
+  cubic_spline: "CUBIC SPLINE",
+  linear: "LINEAR",
+};
+
+export function methodLabel(method: string): string {
+  return METHOD_LABELS[method] ?? method.replace(/_/g, " ").toUpperCase();
 }
 
 /* ------------------------------------------------------------------- motion */
@@ -82,8 +86,8 @@ export function Panel({
   return (
     <div
       className={cn(
-        "bg-surface border border-hair rounded-2xl shadow-panel",
-        padded && "p-6 md:p-8",
+        "rounded-panel border border-line bg-surface",
+        padded && "p-5 md:p-6",
         className,
       )}
     >
@@ -92,40 +96,45 @@ export function Panel({
   );
 }
 
-// A section: heading, a plain-English line saying what you're looking at, then
-// the panel. No eyebrow labels — the gloss does that job better.
+// A section: short technical title, the shortcut that jumps here, one line
+// defining what the figures are, then the panel.
 export function Section({
   id,
+  hotkey,
   title,
-  lede,
+  note,
   action,
   children,
 }: {
   id: string;
+  hotkey?: string;
   title: string;
-  lede: string;
+  note: string;
   action?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-28">
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="max-w-prose">
-          <h2 className="text-[27px] leading-tight font-semibold tracking-[-0.015em]">
-            {title}
-          </h2>
-          <p className="mt-2 font-serif text-[16px] leading-relaxed text-muted">
-            {lede}
-          </p>
+    <section id={id} className="scroll-mt-24">
+      <div className="mb-4 border-b border-line pb-3">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="max-w-prose">
+            <div className="flex items-baseline gap-2.5">
+              <h2 className="text-[19px] font-medium leading-none tracking-[-0.01em]">
+                {title}
+              </h2>
+              {hotkey && <Hotkey>{hotkey}</Hotkey>}
+            </div>
+            <p className="mt-2 text-read text-muted">{note}</p>
+          </div>
+          {action && <div className="shrink-0">{action}</div>}
         </div>
-        {action && <div className="shrink-0">{action}</div>}
       </div>
       {children}
     </section>
   );
 }
 
-export function PanelHeader({
+export function PanelHead({
   title,
   note,
   action,
@@ -135,13 +144,73 @@ export function PanelHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <h3 className="text-[17px] font-semibold tracking-[-0.01em]">{title}</h3>
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <h3 className="font-mono text-[12px] font-semibold uppercase tracking-[0.07em]">
+        {title}
+      </h3>
       <div className="flex items-center gap-3">
-        {note && <span className="text-[13px] text-faint">{note}</span>}
+        {note && <span className="font-mono text-[11.5px] text-faint">{note}</span>}
         {action}
       </div>
     </div>
+  );
+}
+
+// The parameters that produced the numbers above it. Every panel carries one,
+// because a residual is meaningless without the fit and window behind it.
+export function Spec({ items }: { items: [string, string][] }) {
+  return (
+    <dl className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-hair pt-3">
+      {items.map(([k, v], i) => (
+        <div
+          key={k}
+          className={cn(
+            "flex items-baseline gap-1.5",
+            i > 0 && "border-l border-hair pl-3",
+          )}
+        >
+          <dt className="key">{k}</dt>
+          <dd className="font-mono text-[11.5px] text-muted">{v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+// A single readout: key above value. Used in the blotter header strip.
+export function Field({
+  k,
+  v,
+  unit,
+  tone,
+}: {
+  k: string;
+  v: string;
+  unit?: string;
+  tone?: "cheap" | "rich";
+}) {
+  return (
+    <div>
+      <p className="key">{k}</p>
+      <p
+        className={cn(
+          "mt-1.5 font-mono text-[19px] font-medium leading-none",
+          tone === "cheap" && "text-cheap",
+          tone === "rich" && "text-rich",
+        )}
+      >
+        {v}
+        {unit && <span className="ml-1 text-[11.5px] font-normal text-faint">{unit}</span>}
+      </p>
+    </div>
+  );
+}
+
+export function Hotkey({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="rounded-chip border border-hair bg-raised px-1.5 py-px font-mono text-[10.5px] font-medium text-faint">
+      {children}
+    </kbd>
   );
 }
 
@@ -149,25 +218,24 @@ export function PanelHeader({
 
 export function Loading({ label = "Loading" }: { label?: string }) {
   return (
-    <div className="flex items-center gap-3 py-10 text-[14px] text-faint">
-      <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-focus opacity-60" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-focus" />
-      </span>
+    <div className="flex items-center gap-2 py-8 font-mono text-[12px] uppercase tracking-[0.07em] text-faint">
       {label}
+      <span className="caret inline-block h-[11px] w-[6px] bg-focus" />
     </div>
   );
 }
 
 export function ErrorNote({ message }: { message: string }) {
   return (
-    <div className="rounded-xl border border-rich/25 bg-richWash px-5 py-4">
-      <p className="text-[14px] font-medium text-rich">Couldn't load this.</p>
-      <p className="mt-1 font-mono text-[12.5px] leading-relaxed text-rich/80">
+    <div className="rounded-panel border border-rich/35 bg-richWash px-4 py-3">
+      <p className="font-mono text-[11.5px] font-semibold uppercase tracking-[0.08em] text-rich">
+        Request failed
+      </p>
+      <p className="mt-1.5 break-words font-mono text-[12px] leading-relaxed text-rich/85">
         {message}
       </p>
-      <p className="mt-2 text-[13px] text-muted">
-        Check the API is running, then reload.
+      <p className="mt-2 text-[12.5px] text-muted">
+        Start the API, then reload.
       </p>
     </div>
   );
@@ -175,7 +243,7 @@ export function ErrorNote({ message }: { message: string }) {
 
 export function Empty({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-line bg-raised px-5 py-8 text-center font-serif text-[15px] text-muted">
+    <div className="rounded-panel border border-dashed border-line bg-raised px-4 py-6 text-[12.5px] text-muted">
       {children}
     </div>
   );
@@ -183,11 +251,12 @@ export function Empty({ children }: { children: ReactNode }) {
 
 /* ---------------------------------------------------------------------- data */
 
-// Zero-anchored bar for a signed quantity. Right of the tick = cheap.
+// Zero-anchored bar for a signed quantity. Right of the tick = cheap. Square
+// ends: this is a measurement, not a pill.
 export function Deviation({
   value,
   max,
-  width = 84,
+  width = 76,
 }: {
   value: number;
   max: number;
@@ -198,17 +267,15 @@ export function Deviation({
   const positive = value >= 0;
   return (
     <div
-      className="relative h-[7px] shrink-0 rounded-full bg-raised"
+      className="relative h-[8px] shrink-0 bg-sunken"
       style={{ width }}
       aria-hidden="true"
     >
-      <div className="absolute inset-y-[-3px] left-1/2 w-px -translate-x-1/2 bg-line" />
+      <div className="absolute inset-y-[-2px] left-1/2 w-px -translate-x-1/2 bg-line" />
       <div
         className={cn(
-          "absolute top-0 h-[7px] transition-[width] duration-700 ease-out",
-          positive
-            ? "left-1/2 rounded-r-full bg-cheapBright"
-            : "right-1/2 rounded-l-full bg-richBright",
+          "absolute top-0 h-[8px] transition-[width] duration-700 ease-out",
+          positive ? "left-1/2 bg-cheapBright" : "right-1/2 bg-richBright",
         )}
         style={{ width: `${pct}%` }}
       />
@@ -216,19 +283,22 @@ export function Deviation({
   );
 }
 
-// Left-anchored bar for a 0–100 quantity that has no sign.
-export function Meter({ value, width = 68 }: { value: number; width?: number }) {
-  const pct = useGrow(Math.max(0, Math.min(100, value)));
+// Segmented meter for a 0–100 quantity that has no sign. Discrete cells read
+// as a gauge; a smooth bar would read as another deviation.
+export function Meter({ value, cells = 10 }: { value: number; cells?: number }) {
+  const clamped = Math.max(0, Math.min(100, value));
+  const lit = useGrow(Math.round((clamped / 100) * cells));
   return (
-    <div
-      className="h-[7px] shrink-0 overflow-hidden rounded-full bg-raised"
-      style={{ width }}
-      aria-hidden="true"
-    >
-      <div
-        className="h-full rounded-full bg-ink/70 transition-[width] duration-700 ease-out"
-        style={{ width: `${pct}%` }}
-      />
+    <div className="flex shrink-0 items-center gap-[2px]" aria-hidden="true">
+      {Array.from({ length: cells }, (_, i) => (
+        <span
+          key={i}
+          className={cn(
+            "h-[8px] w-[5px] transition-colors duration-500",
+            i < lit ? "bg-ink/75" : "bg-sunken",
+          )}
+        />
+      ))}
     </div>
   );
 }
@@ -247,13 +317,13 @@ export function Signed({
   return (
     <span
       className={cn(
-        "num font-medium",
+        "font-mono font-medium",
         value > 0 ? "text-cheap" : value < 0 ? "text-rich" : "text-muted",
         className,
       )}
     >
       {signed(value, digits)}
-      {unit && <span className="text-[0.85em] font-normal">{unit}</span>}
+      {unit && <span className="text-[0.85em] font-normal text-faint">{unit}</span>}
     </span>
   );
 }
@@ -266,14 +336,14 @@ export function Tag({
   tone?: "neutral" | "cheap" | "rich";
 }) {
   const tones = {
-    neutral: "bg-raised text-muted border-hair",
-    cheap: "bg-cheapWash text-cheap border-cheap/20",
-    rich: "bg-richWash text-rich border-rich/20",
+    neutral: "border-hair bg-raised text-muted",
+    cheap: "border-cheap/25 bg-cheapWash text-cheap",
+    rich: "border-rich/25 bg-richWash text-rich",
   };
   return (
     <span
       className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-[3px] text-[12.5px] font-medium",
+        "inline-flex items-center whitespace-nowrap rounded-chip border px-1.5 py-[1px] font-mono text-[11px] font-medium uppercase tracking-[0.04em]",
         tones[tone],
       )}
     >
@@ -296,11 +366,11 @@ export function Button({
   variant?: "primary" | "quiet";
 }) {
   const base =
-    "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-[14.5px] font-medium transition-colors duration-150";
+    "inline-flex items-center justify-center rounded-chip px-3.5 py-2 font-mono text-[12px] font-medium uppercase tracking-[0.06em] transition-colors duration-150";
   const styles = {
     primary: "bg-ink text-white hover:bg-ink/85 active:bg-ink",
     quiet:
-      "border border-line bg-surface text-ink hover:border-ink/35 hover:bg-raised",
+      "border border-line bg-surface text-ink hover:border-ink/40 hover:bg-raised",
   };
   const cls = cn(base, styles[variant]);
   if (href) {
@@ -322,8 +392,9 @@ export function Select({
   onChange,
   options,
   label,
-  placeholder = "Choose…",
+  placeholder = "Select…",
   compact = false,
+  inputRef,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -331,17 +402,19 @@ export function Select({
   label: string;
   placeholder?: string;
   compact?: boolean;
+  inputRef?: React.Ref<HTMLSelectElement>;
 }) {
   return (
     <div className="relative">
       <select
+        ref={inputRef}
         aria-label={label}
         className={cn(
-          "w-full appearance-none rounded-xl border border-line bg-surface font-medium text-ink",
-          "transition-colors duration-150 hover:border-ink/35",
+          "w-full appearance-none rounded-chip border border-line bg-surface font-mono font-medium text-ink",
+          "transition-colors duration-150 hover:border-ink/40",
           compact
-            ? "py-1.5 pl-3 pr-8 text-[13.5px]"
-            : "py-2.5 pl-4 pr-10 text-[14.5px]",
+            ? "py-1 pl-2.5 pr-7 text-[12px]"
+            : "py-1.5 pl-3 pr-8 text-[12.5px]",
         )}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -359,15 +432,15 @@ export function Select({
         viewBox="0 0 12 12"
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted",
-          compact ? "right-2.5 h-3 w-3" : "right-3.5 h-3.5 w-3.5",
+          "pointer-events-none absolute top-1/2 -translate-y-1/2 text-faint",
+          compact ? "right-2 h-3 w-3" : "right-2.5 h-3 w-3",
         )}
       >
         <path
           d="M2.5 4.5 6 8l3.5-3.5"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.5"
+          strokeWidth="1.4"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -376,7 +449,7 @@ export function Select({
   );
 }
 
-// Discrete choices get real buttons rather than a slider you have to nudge.
+// Discrete parameter values get real buttons rather than a slider you nudge.
 export function Segmented<T extends string | number>({
   value,
   onChange,
@@ -392,7 +465,7 @@ export function Segmented<T extends string | number>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="inline-flex rounded-xl border border-line bg-raised p-1"
+      className="inline-flex divide-x divide-line overflow-hidden rounded-chip border border-line"
     >
       {options.map((o) => {
         const active = o.value === value;
@@ -404,10 +477,10 @@ export function Segmented<T extends string | number>({
             aria-checked={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "num rounded-lg px-3 py-1.5 text-[13.5px] font-medium transition-colors duration-150",
+              "px-2.5 py-1 font-mono text-[12px] font-medium transition-colors duration-150",
               active
-                ? "bg-surface text-ink shadow-bar"
-                : "text-muted hover:text-ink",
+                ? "bg-ink text-white"
+                : "bg-surface text-muted hover:bg-raised hover:text-ink",
             )}
           >
             {o.label}
@@ -423,16 +496,19 @@ export function Segmented<T extends string | number>({
 export function Th({
   children,
   align = "left",
+  group = false,
 }: {
   children: ReactNode;
   align?: "left" | "right";
+  group?: boolean;
 }) {
   return (
     <th
       scope="col"
       className={cn(
-        "whitespace-nowrap border-b border-line px-4 py-3 text-[13px] font-semibold text-muted",
+        "key whitespace-nowrap border-b border-line px-3 py-2",
         align === "right" ? "text-right" : "text-left",
+        group && "group-start",
       )}
     >
       {children}
@@ -442,18 +518,25 @@ export function Th({
 
 export function Td({
   children,
-  align = "left",
+  align,
+  num = false,
+  group = false,
   className,
 }: {
   children: ReactNode;
   align?: "left" | "right";
+  num?: boolean;
+  group?: boolean;
   className?: string;
 }) {
+  const side = align ?? (num ? "right" : "left");
   return (
     <td
       className={cn(
-        "whitespace-nowrap px-4 py-3.5 text-[14.5px]",
-        align === "right" ? "text-right" : "text-left",
+        "whitespace-nowrap px-3 py-[7px] text-cell",
+        num && "font-mono",
+        side === "right" ? "text-right" : "text-left",
+        group && "group-start",
         className,
       )}
     >
@@ -488,7 +571,7 @@ export function SelectableRow({
       className={cn(
         "border-b border-hair transition-colors duration-100 last:border-0",
         onSelect && "cursor-pointer hover:bg-raised",
-        selected && "bg-cheapWash/45",
+        selected && "bg-cheapWash/60",
       )}
     >
       {children}
@@ -499,32 +582,48 @@ export function SelectableRow({
 /* -------------------------------------------------------------- chart tokens */
 
 export const chart = {
-  ink: "#1B2735",
-  cheap: "#14A093",
+  ink: "#121C27",
+  cheap: "#12A093",
   rich: "#D9486A",
-  cobalt: "#2E62D8",
-  grid: "#E6EBF1",
-  axis: "#8A99AC",
+  cobalt: "#1F4FD8",
+  grid: "#E1E8EF",
+  axis: "#8496A8",
+  mono: '"IBM Plex Mono", ui-monospace, monospace',
 };
 
 export const axisProps = {
   stroke: chart.axis,
-  fontSize: 12,
   tickLine: false,
-  axisLine: false,
-  tick: { fill: "#61738A" },
+  axisLine: { stroke: chart.grid },
+  tick: { fill: "#55677B", fontSize: 11, fontFamily: chart.mono },
+} as const;
+
+export const axisLabel = {
+  fill: "#8496A8",
+  fontSize: 10.5,
+  fontFamily: chart.mono,
+  letterSpacing: "0.08em",
 } as const;
 
 export const tooltipProps = {
   contentStyle: {
     background: "#FFFFFF",
-    border: "1px solid #E6EBF1",
-    borderRadius: 12,
-    boxShadow: "0 8px 28px -12px rgba(27,39,53,0.28)",
-    padding: "10px 12px",
-    fontSize: 13,
+    border: "1px solid #C7D2DE",
+    borderRadius: 2,
+    boxShadow: "none",
+    padding: "8px 10px",
+    fontSize: 11.5,
+    fontFamily: chart.mono,
   },
-  labelStyle: { color: "#1B2735", fontWeight: 600, marginBottom: 4 },
-  itemStyle: { color: "#61738A", padding: 0 },
-  cursor: { stroke: "#D6DEE7", strokeWidth: 1 },
+  labelStyle: {
+    color: "#121C27",
+    fontWeight: 600,
+    marginBottom: 4,
+    fontFamily: chart.mono,
+    fontSize: 11,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase" as const,
+  },
+  itemStyle: { color: "#55677B", padding: 0, fontFamily: chart.mono },
+  cursor: { stroke: "#C7D2DE", strokeWidth: 1, strokeDasharray: "3 3" },
 } as const;

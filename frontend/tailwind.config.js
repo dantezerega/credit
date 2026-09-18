@@ -4,41 +4,55 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Daylight instrument palette: cool paper, navy ink, a diverging
-        // teal/rose pair for the only axis that matters here (cheap vs rich).
-        ground: "#EAEEF3",
+        // Instrument palette: cool paper, lit white panel faces, navy ink, and
+        // a diverging teal/rose pair reserved for the only axis that carries
+        // meaning here — cheap vs rich against the fitted curve. Chrome is
+        // grey on purpose, so colour never competes with the data.
+        ground: "#E4E9EF",
         surface: "#FFFFFF",
-        raised: "#F4F7FA",
-        ink: "#1B2735",
-        muted: "#61738A",
-        faint: "#8A99AC",
-        line: "#D6DEE7",
-        hair: "#E6EBF1",
+        raised: "#F1F5F9",
+        sunken: "#E9EEF4",
+        ink: "#121C27",
+        muted: "#55677B",
+        faint: "#8496A8",
+        line: "#C7D2DE",
+        hair: "#E1E8EF",
         // Cheap = trades wide of its curve. Text-weight and graphic-weight.
         cheap: "#0B7A6E",
-        cheapBright: "#14A093",
-        cheapWash: "#E3F2EF",
+        cheapBright: "#12A093",
+        cheapWash: "#E2F1EF",
         // Rich = trades tight to its curve.
-        rich: "#C13A57",
+        rich: "#B62F4C",
         richBright: "#D9486A",
-        richWash: "#FBE9EC",
+        richWash: "#FAE8EB",
         // Interactive only — never used to encode data.
-        focus: "#2E62D8",
+        focus: "#1F4FD8",
       },
       fontFamily: {
-        sans: ['"Libre Franklin"', "ui-sans-serif", "system-ui", "sans-serif"],
-        serif: ['"Spectral"', "ui-serif", "Georgia", "serif"],
+        // One superfamily. Plex Mono carries every figure, identifier and
+        // parameter; Plex Sans carries the few sentences of prose that remain.
+        sans: ['"IBM Plex Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ['"IBM Plex Mono"', "ui-monospace", "SFMono-Regular", "monospace"],
       },
+      fontSize: {
+        // Data sizes, named by role rather than by scale step.
+        key: ["10.5px", { lineHeight: "1.2", letterSpacing: "0.09em" }],
+        cell: ["12.5px", { lineHeight: "1.35" }],
+        read: ["13.5px", { lineHeight: "1.5" }],
+      },
       maxWidth: {
-        column: "1120px",
-        prose: "68ch",
+        // Wider than an article: density needs columns.
+        blotter: "1340px",
+        prose: "72ch",
+      },
+      borderRadius: {
+        // Instrument faces, not cards.
+        panel: "3px",
+        chip: "2px",
       },
       boxShadow: {
-        panel:
-          "0 1px 2px rgba(27,39,53,0.04), 0 10px 28px -16px rgba(27,39,53,0.14)",
-        lift: "0 2px 6px rgba(27,39,53,0.07), 0 18px 36px -20px rgba(27,39,53,0.22)",
-        bar: "0 1px 0 rgba(27,39,53,0.06)",
+        // The only lift on the page: the sticky command bar over scrolled rows.
+        bar: "0 1px 0 rgba(18,28,39,0.10)",
       },
     },
   },
