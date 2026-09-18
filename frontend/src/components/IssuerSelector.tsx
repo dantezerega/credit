@@ -11,15 +11,13 @@ interface Props {
 export function IssuerSelector({ value, onChange }: Props) {
   const { data } = useApi<string[]>(() => api.issuers(), []);
   return (
-    <div className="w-[180px] sm:w-[220px]">
-      <Select
-        compact
-        label="Issuer"
-        placeholder="Choose an issuer"
-        value={value ?? ""}
-        onChange={onChange}
-        options={(data ?? []).map((i) => ({ value: i, label: i }))}
-      />
-    </div>
+    <Select
+      compact
+      label="Issuer"
+      placeholder="Choose an issuer"
+      value={value ?? ""}
+      onChange={onChange}
+      options={(data ?? []).map((i) => ({ value: i, label: i }))}
+    />
   );
 }

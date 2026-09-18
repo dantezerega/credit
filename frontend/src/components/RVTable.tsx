@@ -39,7 +39,7 @@ export function RVTable({ mode, onSelectIssuer, selected }: Props) {
       <div className="px-6 pt-6 md:px-8 md:pt-7">
         <PanelHeader
           title={mode === "cheapest" ? "Twenty cheapest" : "Twenty richest"}
-          note="Select a row to load that issuer below"
+          note="Select a row to open that issuer's curve"
         />
       </div>
 

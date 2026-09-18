@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BacktestPanel } from "./components/BacktestPanel";
 import { IssuerCurveChart } from "./components/IssuerCurveChart";
 import { IssuerSelector } from "./components/IssuerSelector";
@@ -117,7 +117,9 @@ function TopBar({
 
         <div className="ml-auto flex items-center gap-3 xl:ml-0">
           <span className="hidden text-[13px] text-faint sm:inline">Issuer</span>
-          <IssuerSelector value={issuer} onChange={onIssuer} />
+          <div className="w-[180px] sm:w-[220px]">
+            <IssuerSelector value={issuer} onChange={onIssuer} />
+          </div>
         </div>
       </div>
     </header>
@@ -126,6 +128,21 @@ function TopBar({
 
 export default function App() {
   const [issuer, setIssuer] = useState<string | null>("EXXON MOBIL");
+
+  // The issuer only drives the curve and history panels, which sit thousands of
+  // pixels below the bar the picker lives in — so choosing one looked like it
+  // did nothing at all. Carry the reader to what they just chose, unless it is
+  // already in front of them.
+  const selectIssuer = useCallback((next: string) => {
+    setIssuer(next);
+    const el = document.getElementById("curve");
+    if (!el) return;
+    const box = el.getBoundingClientRect();
+    const alreadyInView = box.top < window.innerHeight - 160 && box.bottom > 160;
+    // Instant, not smooth: this jump is several thousand pixels, and animating
+    // it is a long disorienting blur rather than a helpful transition.
+    if (!alreadyInView) el.scrollIntoView({ block: "start", behavior: "instant" });
+  }, []);
 
   return (
     <div className="min-h-screen bg-ground">
@@ -136,7 +153,7 @@ export default function App() {
         Skip to signals
       </a>
 
-      <TopBar issuer={issuer} onIssuer={setIssuer} />
+      <TopBar issuer={issuer} onIssuer={selectIssuer} />
 
       <main id="top">
         <Overview />
@@ -147,7 +164,7 @@ export default function App() {
             title="What the model would trade"
             lede="Bonds sitting more than two standard deviations off their own issuer curve, ranked by how far they have to travel to get back."
           >
-            <SignalsTable onSelectIssuer={setIssuer} selected={issuer} />
+            <SignalsTable onSelectIssuer={selectIssuer} selected={issuer} />
           </Section>
 
           <Section
@@ -155,7 +172,7 @@ export default function App() {
             title="Trading cheap to the curve"
             lede="The twenty widest residuals. A positive gap means the bond pays more spread than its issuer's curve implies, so you are paid more for the same credit risk."
           >
-            <RVTable mode="cheapest" onSelectIssuer={setIssuer} selected={issuer} />
+            <RVTable mode="cheapest" onSelectIssuer={selectIssuer} selected={issuer} />
           </Section>
 
           <Section
@@ -163,13 +180,21 @@ export default function App() {
             title="Trading rich to the curve"
             lede="The twenty tightest residuals. A negative gap means the bond pays less than the curve implies, so you are giving up spread for nothing."
           >
-            <RVTable mode="richest" onSelectIssuer={setIssuer} selected={issuer} />
+            <RVTable mode="richest" onSelectIssuer={selectIssuer} selected={issuer} />
           </Section>
 
           <Section
             id="curve"
             title="One issuer, close up"
             lede="Each dot is a bond. The line is the curve fitted through all of them. The vertical distance between the two is the residual everything else on this page is built from."
+            action={
+              <label className="flex items-center gap-3">
+                <span className="text-[13.5px] text-muted">Issuer</span>
+                <div className="w-[220px]">
+                  <IssuerSelector value={issuer} onChange={selectIssuer} />
+                </div>
+              </label>
+            }
           >
             <div className="space-y-8">
               <IssuerCurveChart issuer={issuer} />
