@@ -97,7 +97,7 @@ export function SpreadTimeSeries({ issuer }: Props) {
         }
       />
 
-      {!issuer && <Empty>Select an issuer in the bar above.</Empty>}
+      {!issuer && <Empty>Select an issuer above.</Empty>}
       {issuer && loading && <Loading label="Loading history" />}
       {error && <ErrorNote message={error} />}
       {issuer && data && data.length === 0 && !loading && (

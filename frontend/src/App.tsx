@@ -100,13 +100,7 @@ function useSectionKeys(ids: string[]) {
   }, [key]);
 }
 
-function CommandBar({
-  issuer,
-  onIssuer,
-}: {
-  issuer: string | null;
-  onIssuer: (i: string) => void;
-}) {
+function CommandBar() {
   const active = useActiveSection(SECTIONS.map((s) => s.id));
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-surface/95 shadow-bar backdrop-blur">
@@ -118,7 +112,10 @@ function CommandBar({
           </span>
         </a>
 
-        <nav className="hidden flex-1 items-center gap-px xl:flex" aria-label="Sections">
+        <nav
+          className="scroll-slim hidden flex-1 items-center gap-px overflow-x-auto md:flex"
+          aria-label="Sections"
+        >
           {SECTIONS.map((s, i) => (
             <a
               key={s.id}
@@ -143,12 +140,6 @@ function CommandBar({
           ))}
         </nav>
 
-        <label className="ml-auto flex items-center gap-2 xl:ml-0">
-          <span className="key hidden sm:inline">Issuer</span>
-          <div className="w-[176px] sm:w-[210px]">
-            <IssuerSelector value={issuer} onChange={onIssuer} />
-          </div>
-        </label>
       </div>
     </header>
   );
@@ -158,10 +149,10 @@ export default function App() {
   const [issuer, setIssuer] = useState<string | null>("EXXON MOBIL");
   useSectionKeys(SECTIONS.map((s) => s.id));
 
-  // The issuer only drives the curve and history panels, which sit thousands of
-  // pixels below the bar the picker lives in — so choosing one looked like it
-  // did nothing at all. Carry the reader to what they just chose, unless it is
-  // already in front of them.
+  // Issuer can also be chosen by selecting a row in any of the tables above,
+  // and the panels it drives sit thousands of pixels below them — so choosing
+  // one there looked like it did nothing at all. Carry the reader to what they
+  // just chose, unless it is already in front of them.
   const selectIssuer = useCallback((next: string) => {
     setIssuer(next);
     const el = document.getElementById("curve");
@@ -182,7 +173,7 @@ export default function App() {
         Skip to signals
       </a>
 
-      <CommandBar issuer={issuer} onIssuer={selectIssuer} />
+      <CommandBar />
 
       <main id="top">
         <BlotterHeader />
@@ -220,6 +211,14 @@ export default function App() {
             hotkey="4"
             title="Issuer curve"
             note="Observed Z-spreads against the curve fitted through them. The vertical gap is the residual every other panel is built from."
+            action={
+              <label className="flex items-center gap-2">
+                <span className="key">Issuer</span>
+                <div className="w-[210px]">
+                  <IssuerSelector value={issuer} onChange={selectIssuer} />
+                </div>
+              </label>
+            }
           >
             <div className="space-y-4">
               <IssuerCurveChart issuer={issuer} />

@@ -77,7 +77,7 @@ export function IssuerCurveChart({ issuer }: Props) {
     return (
       <Panel>
         <PanelHead title="Issuer curve" />
-        <Empty>Select an issuer in the bar above to fit its curve.</Empty>
+        <Empty>Select an issuer to fit its curve.</Empty>
       </Panel>
     );
   }

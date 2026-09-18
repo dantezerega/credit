@@ -7,7 +7,7 @@ interface Props {
   onChange: (issuer: string) => void;
 }
 
-// Issuer picker in the command bar, driving the curve and history panels.
+// Issuer picker for the curve section, driving the curve and history panels.
 export function IssuerSelector({ value, onChange }: Props) {
   const { data } = useApi<string[]>(() => api.issuers(), []);
   return (
